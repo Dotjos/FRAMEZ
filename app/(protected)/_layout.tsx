@@ -1,7 +1,7 @@
 import { Stack, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { useAuthStore } from "../store/authStore";
+import { useAuthStore } from "../../store/authStore";
 
 export default function ProtectedLayout() {
   const router = useRouter();
