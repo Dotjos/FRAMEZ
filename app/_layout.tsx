@@ -1,17 +1,33 @@
-import { ConvexProviderWithAuth, ConvexReactClient } from "convex/react";
-import { Stack } from "expo-router";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Stack, useRouter } from "expo-router";
+import { useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { useAuthStore } from "../store/authStore";
 
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
-  unsavedChangesWarning: false,
-});
+export default function ProtectedLayout() {
+  const router = useRouter();
+  const { user, fetchUser, initialized, loading } = useAuthStore();
 
-export default function RootLayout() {
-  return (
-    <SafeAreaProvider>
-      <ConvexProviderWithAuth client={convex}>
-        <Stack />
-      </ConvexProviderWithAuth>
-    </SafeAreaProvider>
-  );
+  useEffect(() => {
+    const init = async () => {
+      await fetchUser();
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    if (initialized && !user) {
+      // user not logged in → redirect to login
+      router.replace("/login");
+    }
+  }, [user, initialized]);
+
+  if (loading && !initialized) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color="#E1306C" />
+      </View>
+    );
+  }
+
+  return <Stack screenOptions={{ headerShown: false }} />;
 }
