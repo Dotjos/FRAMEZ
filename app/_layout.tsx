@@ -1,11 +1,13 @@
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import Toast from "react-native-toast-message";
 import { useAuthStore } from "../store/authStore";
 
-export default function ProtectedLayout() {
-  const router = useRouter();
-  const { user, fetchUser, initialized, loading } = useAuthStore();
+export default function RootLayout() {
+  const { fetchUser, initialized, loading } = useAuthStore();
 
   useEffect(() => {
     const init = async () => {
@@ -14,20 +16,38 @@ export default function ProtectedLayout() {
     init();
   }, []);
 
-  useEffect(() => {
-    if (initialized && !user) {
-      // user not logged in → redirect to login
-      router.replace("/login");
-    }
-  }, [user, initialized]);
-
   if (loading && !initialized) {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#E1306C" />
       </View>
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="auto" />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+        <Toast />
+      </SafeAreaView>
+    </SafeAreaProvider>
+  );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+});
