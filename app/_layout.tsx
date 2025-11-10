@@ -1,6 +1,7 @@
 import { Stack, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
+import Toast from "react-native-toast-message";
 import { useAuthStore } from "../store/authStore";
 
 export default function ProtectedLayout() {
@@ -29,5 +30,10 @@ export default function ProtectedLayout() {
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <>
+      <Stack screenOptions={{ headerShown: false }} />
+      <Toast />
+    </>
+  );
 }
