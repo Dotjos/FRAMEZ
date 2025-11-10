@@ -19,7 +19,7 @@ interface Post {
   profiles?: {
     username: string;
     avatar_url: string | null;
-  };
+  } | null;
 }
 
 export default function FeedScreen() {
@@ -29,35 +29,44 @@ export default function FeedScreen() {
 
   const fetchPosts = async () => {
     setLoading(true);
+
     const { data, error } = await supabase
       .from("posts")
-      .select(`
+      .select(
+        `
         *,
-        profiles:user_id (
+        profiles (
           username,
           avatar_url
         )
-      `)
+      `
+      )
       .order("created_at", { ascending: false });
-    
-    if (!error) setPosts(data || []);
+
+    if (error) {
+      console.error("❌ Error:", error);
+    } else {
+      setPosts(data || []);
+    }
+
     setLoading(false);
   };
 
   useEffect(() => {
     fetchPosts();
-
-    // ✅ Real-time subscription for new posts
+    // Real-time subscription for new posts
     const channel = supabase
       .channel("posts-channel")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "posts" },
-        () => {
-          fetchPosts(); // Refresh feed when posts change
+        (payload) => {
+          fetchPosts();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("📡 Subscription status:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -85,12 +94,13 @@ export default function FeedScreen() {
     return date.toLocaleDateString();
   };
 
-  if (loading)
+  if (loading && posts.length === 0) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#E1306C" />
       </View>
     );
+  }
 
   return (
     <ScrollView
@@ -103,10 +113,8 @@ export default function FeedScreen() {
 
       {posts.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No posts yet.</Text>
-          <Text style={styles.emptySubtext}>
-            Be the first to create one!
-          </Text>
+          <Text style={styles.emptyText}>No posts yethhhhh.</Text>
+          <Text style={styles.emptySubtext}>Be the first to create one!</Text>
         </View>
       ) : (
         posts.map((post) => (
@@ -128,9 +136,7 @@ export default function FeedScreen() {
                 )}
               </View>
               <View style={styles.userDetails}>
-                <Text style={styles.username}>
-                  {post.profiles?.username || "Anonymous"}
-                </Text>
+                <Text style={styles.username}>{post.profiles?.username}</Text>
                 <Text style={styles.timestamp}>
                   {formatDate(post.created_at)}
                 </Text>
@@ -143,13 +149,16 @@ export default function FeedScreen() {
                 source={{ uri: post.image_url }}
                 style={styles.postImage}
                 resizeMode="cover"
+                onLoad={() => console.log("✅ Image loaded:", post.image_url)}
+                onError={(error) => {
+                  console.log("❌ Image failed to load:", post.image_url);
+                  console.log("Error details:", error.nativeEvent.error);
+                }}
               />
             )}
 
             {/* Post Caption */}
-            {post.content && (
-              <Text style={styles.caption}>{post.content}</Text>
-            )}
+            {post.content && <Text style={styles.caption}>{post.content}</Text>}
           </View>
         ))
       )}
@@ -163,12 +172,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   header: {
-    fontSize: 28,
-    fontWeight: "bold",
+    fontSize: 20,
+    fontWeight: "400",
     marginBottom: 20,
     marginTop: 10,
     paddingHorizontal: 15,
-    color: "#000",
+    color: "#E1306C",
   },
   center: {
     flex: 1,
@@ -192,8 +201,7 @@ const styles = StyleSheet.create({
   },
   postCard: {
     backgroundColor: "#fff",
-    marginBottom: 15,
-    borderTopWidth: 1,
+    marginBottom: 5,
     borderBottomWidth: 1,
     borderColor: "#ebebeb",
   },

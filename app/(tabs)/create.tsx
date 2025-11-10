@@ -1,9 +1,11 @@
+import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
 import { Ionicons } from "@expo/vector-icons";
 import { decode } from "base64-arraybuffer";
-import { File as ExpoFile } from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -16,10 +18,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { supabase } from "../../../lib/supabase";
 
 export default function CreatePostScreen() {
-  const {user}= useAuthStore()
+  const { user } = useAuthStore();
   const router = useRouter();
   const [content, setContent] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export default function CreatePostScreen() {
   // Pick image from gallery
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (status !== "granted") {
       Alert.alert("Permission needed", "Please grant photo library permission");
       return;
@@ -41,6 +42,8 @@ export default function CreatePostScreen() {
       quality: 0.8,
     });
 
+    console.log(result);
+
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
     }
@@ -48,8 +51,8 @@ export default function CreatePostScreen() {
 
   // Take photo with camera
   const takePhoto = async () => {
-    const { status} = await ImagePicker.requestCameraPermissionsAsync();
-    
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
     if (status !== "granted") {
       Alert.alert("Permission needed", "Please grant camera permission");
       return;
@@ -66,29 +69,24 @@ export default function CreatePostScreen() {
     }
   };
 
-  // Upload image to Supabase Storage
   const uploadImage = async (localUri: string): Promise<string> => {
     try {
       // Read file as base64
-      const file = new ExpoFile(localUri);
-      const base64 = file.base64();
-      
-      // Generate unique filename
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
-      const filePath = `posts/${fileName}`;
+      const base64 = await FileSystem.readAsStringAsync(localUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-      // Upload to Supabase Storage
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+      const filePath = fileName;
+
       const { data, error } = await supabase.storage
         .from("posts")
         .upload(filePath, decode(base64), {
           contentType: "image/jpeg",
         });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("posts")
         .getPublicUrl(filePath);
@@ -109,7 +107,6 @@ export default function CreatePostScreen() {
 
     setUploading(true);
     try {
-    
       // Get user profile
       const { data: profile } = await supabase
         .from("profiles")
@@ -120,13 +117,13 @@ export default function CreatePostScreen() {
       // Upload image if present
       let imageUrl: string | null = null;
       if (imageUri) {
+        console.log(imageUri, imageUrl);
         imageUrl = await uploadImage(imageUri);
       }
 
       // Create post
       const { error } = await supabase.from("posts").insert({
         user_id: user?.id,
-        // author_name: profile?.name || "Unknown",
         content: content.trim(),
         image_url: imageUrl,
       });
