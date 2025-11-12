@@ -310,9 +310,6 @@ export default function SignUpScreen() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: "https://your-app-domain.com/auth/callback",
-        },
       });
 
       if (error) {
