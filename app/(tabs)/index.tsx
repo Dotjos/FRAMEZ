@@ -1,8 +1,9 @@
-import { supabase } from "@/lib/supabase";
+import PostCard from "@/Components/PostCard";
+import { useAuthStore } from "@/store/authStore";
+import { usePostStore } from "@/store/postStore";
 import { useEffect, useState } from "react";
+
 import {
-  ActivityIndicator,
-  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,97 +11,61 @@ import {
   View,
 } from "react-native";
 
-interface Post {
-  id: string;
-  user_id: string;
-  content: string;
-  image_url: string | null;
-  created_at: string;
-  profiles?: {
-    username: string;
-    avatar_url: string | null;
-  } | null;
-}
-
 export default function FeedScreen() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const fetchPosts = async () => {
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from("posts")
-      .select(
-        `
-        *,
-        profiles (
-          username,
-          avatar_url
-        )
-      `
-      )
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("❌ Error:", error);
-    } else {
-      setPosts(data || []);
-    }
-
-    setLoading(false);
-  };
+  const { user } = useAuthStore();
+  const {
+    fetchPosts,
+    posts,
+    fetchUserInteractions,
+    toggleLike,
+    toggleRepost,
+    isLiked,
+    isReposted,
+    setupRealtime,
+    cleanupRealtime,
+  } = usePostStore();
 
   useEffect(() => {
-    fetchPosts();
-    // Real-time subscription for new posts
-    const channel = supabase
-      .channel("posts-channel")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "posts" },
-        (payload) => {
-          fetchPosts();
-        }
-      )
-      .subscribe((status) => {
-        console.log("📡 Subscription status:", status);
-      });
+    const initializeFeed = async () => {
+      if (user?.id) {
+        await Promise.all([
+          fetchPosts(), // Fetch all posts for feed
+          fetchUserInteractions(user.id),
+        ]);
 
-    return () => {
-      supabase.removeChannel(channel);
+        // Setup real-time subscriptions
+        setupRealtime(user.id);
+      }
     };
-  }, []);
+
+    initializeFeed();
+
+    // Cleanup on unmount
+    return () => {
+      cleanupRealtime();
+    };
+  }, [user?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchPosts();
+    if (user?.id) {
+      await Promise.all([fetchPosts(), fetchUserInteractions(user.id)]);
+    }
     setRefreshing(false);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+  const handleLike = async (postId: string) => {
+    // Optimistic UI update
+    if (!user?.id) return;
+    await toggleLike(postId, user.id);
   };
 
-  if (loading && posts.length === 0) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#E1306C" />
-      </View>
-    );
-  }
+  // Handle Repost
+  const handleRepost = async (postId: string) => {
+    if (!user?.id) return;
+    await toggleRepost(postId, user.id);
+  };
 
   return (
     <ScrollView
@@ -109,58 +74,25 @@ export default function FeedScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <Text style={styles.header}>🎬 Framez Feed</Text>
-
+      <Text style={styles.header}> Framez Feed</Text>
       {posts.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No posts yethhhhh.</Text>
+          <Text style={styles.emptyText}>No posts yet.</Text>
           <Text style={styles.emptySubtext}>Be the first to create one!</Text>
         </View>
       ) : (
-        posts.map((post) => (
-          <View key={post.id} style={styles.postCard}>
-            {/* User Info */}
-            <View style={styles.userInfo}>
-              <View style={styles.avatar}>
-                {post.profiles?.avatar_url ? (
-                  <Image
-                    source={{ uri: post.profiles.avatar_url }}
-                    style={styles.avatarImage}
-                  />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Text style={styles.avatarText}>
-                      {post.profiles?.username?.[0]?.toUpperCase() || "?"}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.userDetails}>
-                <Text style={styles.username}>{post.profiles?.username}</Text>
-                <Text style={styles.timestamp}>
-                  {formatDate(post.created_at)}
-                </Text>
-              </View>
-            </View>
-
-            {/* Post Image */}
-            {post.image_url && (
-              <Image
-                source={{ uri: post.image_url }}
-                style={styles.postImage}
-                resizeMode="cover"
-                onLoad={() => console.log("✅ Image loaded:", post.image_url)}
-                onError={(error) => {
-                  console.log("❌ Image failed to load:", post.image_url);
-                  console.log("Error details:", error.nativeEvent.error);
-                }}
-              />
-            )}
-
-            {/* Post Caption */}
-            {post.content && <Text style={styles.caption}>{post.content}</Text>}
-          </View>
-        ))
+        posts.map((post) => {
+          return (
+            <PostCard
+              key={post.id}
+              isLiked={isLiked(post.id)}
+              post={post}
+              isReposted={isReposted(post.id)} // ✅ Add this
+              onLike={handleLike}
+              onRepost={handleRepost}
+            />
+          );
+        })
       )}
     </ScrollView>
   );
@@ -189,6 +121,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 60,
   },
+  actions: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+    marginTop: 6,
+    paddingVertical: 8,
+  },
+
   emptyText: {
     fontSize: 18,
     fontWeight: "600",
@@ -202,16 +142,16 @@ const styles = StyleSheet.create({
   postCard: {
     backgroundColor: "#fff",
     marginBottom: 5,
-    borderBottomWidth: 1,
     borderColor: "#ebebeb",
+    padding: 15,
   },
   userInfo: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    marginBottom: 13,
   },
   avatar: {
-    marginRight: 10,
+    marginRight: 13,
   },
   avatarImage: {
     width: 40,
@@ -246,13 +186,34 @@ const styles = StyleSheet.create({
   },
   postImage: {
     width: "100%",
-    height: 400,
+    height: 200,
     backgroundColor: "#f0f0f0",
+    marginBottom: 13,
   },
+
   caption: {
-    padding: 12,
-    fontSize: 14,
+    fontSize: 20,
     color: "#262626",
     lineHeight: 18,
+  },
+
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  actionText: {
+    fontSize: 2,
+    fontWeight: "500",
+  },
+  followBtn: {
+    marginLeft: "auto",
+    backgroundColor: "#eee",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  followBtnText: {
+    fontSize: 8,
+    color: "#333",
   },
 });
