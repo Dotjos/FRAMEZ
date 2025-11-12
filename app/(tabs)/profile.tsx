@@ -1,3 +1,4 @@
+import CommentModal from "@/Components/CommentModal";
 import PostCard from "@/Components/PostCard";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
@@ -42,6 +43,8 @@ export default function ProfileScreen() {
     deletePost: deletePostFromStore,
     isLiked,
     isReposted,
+    updatePost,
+    refreshPostCounts,
   } = usePostStore();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -49,6 +52,10 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // Comment Modal States <--- ADD THESE
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<any>(null); // Use 'any' or Post interface
 
   // Edit form states
   const [username, setUsername] = useState("");
@@ -229,6 +236,23 @@ export default function ProfileScreen() {
     await toggleRepost(postId, user.id);
   };
 
+  const handleCommentPress = (post: any) => {
+    setSelectedPost(post);
+    setIsModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setIsModalVisible(false);
+    setSelectedPost(null);
+  };
+
+  // 3. Update the post count after a successful comment submission
+  const handleCommentSuccess = async (postId: string) => {
+    // This function is passed to the CommentModal and runs after a successful insert.
+    // We force a refresh of the counts for this single post.
+    await refreshPostCounts(postId);
+  };
+
   if (loading && !profile) {
     return (
       <View style={styles.center}>
@@ -371,10 +395,20 @@ export default function ProfileScreen() {
               onLike={handleLike}
               onRepost={handleRepost}
               onDelete={handleDeletePost}
+              onComment={handleCommentPress}
             />
           ))
         )}
       </View>
+
+      {selectedPost && (
+        <CommentModal
+          isVisible={isModalVisible}
+          post={selectedPost}
+          onClose={closeModal}
+          onCommentSuccess={handleCommentSuccess} // <--- PASS THE NEW SUCCESS HANDLER
+        />
+      )}
     </ScrollView>
   );
 }
