@@ -16,9 +16,34 @@ import Toast from "react-native-toast-message";
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
   const [loading, setLoading] = useState(false);
 
+  const validate = () => {
+    const newErrors: typeof errors = {};
+
+    if (!email) {
+      newErrors.email = "Please enter your email address.";
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = "That doesn't look like a valid email.";
+    }
+
+    if (!password) {
+      newErrors.password = "Please enter your password.";
+    } else if (password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleLogin = async () => {
+    if (!validate()) return;
+
     setLoading(true);
 
     try {
@@ -126,22 +151,25 @@ export default function LoginScreen() {
         <Text style={styles.subtitle}>Welcome back</Text>
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.email && styles.errorInput]}
           placeholder="Email"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
         />
+        {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, errors.password && styles.errorInput]}
           placeholder="Password"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
-
+        {errors.password && (
+          <Text style={styles.errorText}>{errors.password}</Text>
+        )}
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleLogin}
@@ -188,6 +216,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: "#ddd",
+    color: "#666",
   },
   button: {
     backgroundColor: "#E1306C",
@@ -209,5 +238,15 @@ const styles = StyleSheet.create({
     color: "#E1306C",
     marginTop: 20,
     fontWeight: "600",
+  },
+  errorInput: {
+    borderColor: "#E1306C",
+    backgroundColor: "#fff0f3",
+  },
+  errorText: {
+    color: "#E1306C",
+    fontSize: 13,
+    marginBottom: 8,
+    marginLeft: 5,
   },
 });
