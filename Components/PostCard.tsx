@@ -6,6 +6,7 @@ interface PostCardProps {
   post: any;
   isLiked: boolean;
   isReposted: boolean;
+  onComment: (post: any) => void;
   onLike: (id: string) => void;
   onRepost: (id: string) => void;
   onDelete?: (id: string) => void;
@@ -17,6 +18,7 @@ const PostCard: React.FC<PostCardProps> = ({
   isReposted,
   isLiked,
   onDelete,
+  onComment,
   onRepost,
 }) => {
   // const { user } = useAuthStore();
@@ -93,6 +95,9 @@ const PostCard: React.FC<PostCardProps> = ({
         </View>
 
         <View style={styles.actionEach}>
+          {post.reposts_count > 0 && (
+            <Text style={styles.actionCount}>{post.reposts_count}</Text>
+          )}
           <TouchableOpacity onPress={() => onRepost(post.id)}>
             <Feather
               name="repeat"
@@ -100,9 +105,15 @@ const PostCard: React.FC<PostCardProps> = ({
               color={isReposted ? "#e63946" : "#555"}
             />
           </TouchableOpacity>
-          {post.reposts_count > 0 && (
-            <Text style={styles.actionCount}>{post.reposts_count}</Text>
+        </View>
+
+        <View style={styles.actionEach}>
+          {post.comments_count > 0 && (
+            <Text style={styles.actionCount}>{post.comments_count}</Text>
           )}
+          <TouchableOpacity onPress={() => onComment(post)}>
+            <Feather name="message-square" size={17} color="#555" />
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -118,7 +129,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: "row",
-    gap: 10,
+    gap: 6,
     alignItems: "center",
     marginTop: 6,
     paddingVertical: 8,
@@ -172,7 +183,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: "#555",
     fontWeight: "500",
-    marginLeft: 4,
+    // marginLeft: 4,
   },
   caption: {
     fontSize: 15,
@@ -183,6 +194,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    // gap: 5,
   },
   actionBtn: {
     flexDirection: "row",

@@ -486,6 +486,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: "#ddd",
+    color: "#666",
   },
   link: {
     textAlign: "center",

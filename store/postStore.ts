@@ -10,7 +10,8 @@ interface Post {
   user_id: string;
   likes_count?: number;
   reposts_count?: number;
-  profiles?: Profile; // Embedded profile from join
+  comments_count?: number;
+  profiles?: Profile;
 }
 
 interface Profile {
@@ -129,16 +130,21 @@ export const usePostStore = create<PostStore>((set, get) => ({
         // Fetch counts for all posts in parallel and cache profiles
         const postsWithCounts = await Promise.all(
           posts.map(async (post) => {
-            const [likesResult, repostsResult] = await Promise.all([
-              supabase
-                .from("likes")
-                .select("*", { count: "exact", head: true })
-                .eq("post_id", post.id),
-              supabase
-                .from("reposts")
-                .select("*", { count: "exact", head: true })
-                .eq("post_id", post.id),
-            ]);
+            const [likesResult, repostsResult, commentsResult] =
+              await Promise.all([
+                supabase
+                  .from("likes")
+                  .select("*", { count: "exact", head: true })
+                  .eq("post_id", post.id),
+                supabase
+                  .from("reposts")
+                  .select("*", { count: "exact", head: true })
+                  .eq("post_id", post.id),
+                supabase
+                  .from("comments")
+                  .select("*", { count: "exact", head: true })
+                  .eq("post_id", post.id),
+              ]);
 
             // Cache the profile data
             if (post.profiles) {
@@ -154,6 +160,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
               ...post,
               likes_count: likesResult.count || 0,
               reposts_count: repostsResult.count || 0,
+              comments_count: commentsResult.count || 0,
             };
           })
         );
@@ -178,7 +185,7 @@ export const usePostStore = create<PostStore>((set, get) => ({
   // Refresh counts for a specific post
   refreshPostCounts: async (postId) => {
     try {
-      const [likesResult, repostsResult] = await Promise.all([
+      const [likesResult, repostsResult, commentsResult] = await Promise.all([
         supabase
           .from("likes")
           .select("*", { count: "exact", head: true })
@@ -187,11 +194,16 @@ export const usePostStore = create<PostStore>((set, get) => ({
           .from("reposts")
           .select("*", { count: "exact", head: true })
           .eq("post_id", postId),
+        supabase
+          .from("comments")
+          .select("*", { count: "exact", head: true })
+          .eq("post_id", postId),
       ]);
 
       get().updatePost(postId, {
         likes_count: likesResult.count || 0,
         reposts_count: repostsResult.count || 0,
+        comments_count: commentsResult.count || 0,
       });
     } catch (error) {
       console.error("Error refreshing post counts:", error);

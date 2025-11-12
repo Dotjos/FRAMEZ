@@ -1,3 +1,4 @@
+import CommentModal from "@/Components/CommentModal";
 import PostCard from "@/Components/PostCard";
 import { useAuthStore } from "@/store/authStore";
 import { usePostStore } from "@/store/postStore";
@@ -13,6 +14,8 @@ import {
 
 export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
   const { user } = useAuthStore();
   const {
     fetchPosts,
@@ -24,6 +27,7 @@ export default function FeedScreen() {
     isReposted,
     setupRealtime,
     cleanupRealtime,
+    updatePost,
   } = usePostStore();
 
   useEffect(() => {
@@ -46,6 +50,23 @@ export default function FeedScreen() {
       cleanupRealtime();
     };
   }, [user?.id]);
+
+  const handleCommentPress = (post: any) => {
+    console.log(post);
+    setSelectedPost(post);
+    setIsModalVisible(true);
+  };
+
+  const handleCommentSuccess = (postId: string, currentCount: number) => {
+    updatePost(postId, {
+      comments_count: currentCount + 1,
+    });
+  };
+
+  const closeModal = () => {
+    setIsModalVisible(false);
+    setSelectedPost(null);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -81,22 +102,32 @@ export default function FeedScreen() {
           <Text style={styles.emptySubtext}>Be the first to create one!</Text>
         </View>
       ) : (
-        posts.map((post) => {
-          return (
-            <PostCard
-              key={post.id}
-              isLiked={isLiked(post.id)}
-              post={post}
-              isReposted={isReposted(post.id)} // ✅ Add this
-              onLike={handleLike}
-              onRepost={handleRepost}
-            />
-          );
-        })
+        posts.map((post) => (
+          <PostCard
+            key={post.id}
+            isLiked={isLiked(post.id)}
+            post={post}
+            isReposted={isReposted(post.id)}
+            onLike={handleLike}
+            onRepost={handleRepost}
+            onComment={handleCommentPress}
+          />
+        ))
+      )}
+
+      {selectedPost && (
+        <CommentModal
+          isVisible={isModalVisible}
+          post={selectedPost}
+          onClose={closeModal}
+          onCommentSuccess={handleCommentSuccess}
+        />
       )}
     </ScrollView>
   );
 }
+
+// ... (rest of the component and styles)
 
 const styles = StyleSheet.create({
   container: {
