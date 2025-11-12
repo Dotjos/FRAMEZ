@@ -1,50 +1,93 @@
-# Welcome to your Expo app 👋
+# FRAMEZ
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A modern mobile application built with [Expo](https://expo.dev) and React Native.
 
-## Get started
+## 📱 About
 
-1. Install dependencies
+FRAMEZ is a cross-platform mobile application created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app), providing a seamless experience across iOS, Android, and web platforms.
 
-   ```bash
-   npm install
-   ```
+## 🚀 Getting Started
 
-2. Start the app
+### Prerequisites
 
-   ```bash
-   npx expo start
-   ```
+- Node.js (LTS version recommended)
+- npm or yarn
+- iOS Simulator (for macOS users)
+- Android Studio and Android Emulator (optional)
+- Expo Go app (optional, for quick testing)
 
-In the output, you'll find options to open the app in a
+### Installation
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+1. Clone the repository:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+```bash
+git clone https://github.com/Dotjos/FRAMEZ.git
+cd FRAMEZ
+```
 
-## Get a fresh project
+2. Install dependencies:
 
-When you're ready, run:
+```bash
+npm install
+```
+
+### Running the App
+
+Start the development server:
+
+```bash
+npx expo start
+```
+
+Once the development server is running, you have several options to view your app:
+
+- **Development Build**: Open in a [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- **Android Emulator**: Run on [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- **iOS Simulator**: Run on [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/) (macOS only)
+- **Expo Go**: Use [Expo Go](https://expo.dev/go) for quick testing (limited sandbox environment)
+
+## 📂 Project Structure
+
+This project uses [file-based routing](https://docs.expo.dev/router/introduction/). Start developing by editing the files inside the `app` directory.
+
+## 🔄 Reset Project
+
+When you're ready to start with a clean slate:
 
 ```bash
 npm run reset-project
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+This command will:
 
-## Learn more
+- Move the starter code to the `app-example` directory
+- Create a blank `app` directory for your development
 
-To learn more about developing your project with Expo, look at the following resources:
+## 📚 Learn More
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+To learn more about developing with Expo, explore these resources:
 
-## Join the community
+- **[Expo Documentation](https://docs.expo.dev/)**: Learn fundamentals and explore advanced topics
+- **[Expo Guides](https://docs.expo.dev/guides)**: Comprehensive guides for various features
+- **[Learn Expo Tutorial](https://docs.expo.dev/tutorial/introduction/)**: Step-by-step tutorial for creating cross-platform apps
 
-Join our community of developers creating universal apps.
+## 🤝 Community
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Join the Expo community:
+
+- **[Expo on GitHub](https://github.com/expo/expo)**: View the open source platform and contribute
+- **[Discord Community](https://chat.expo.dev)**: Chat with other Expo users and ask questions
+
+## 🛠️ Built With
+
+- [Expo](https://expo.dev) - Framework and platform for universal React applications
+- [React Native](https://reactnative.dev/) - Framework for building native apps using React
+- [Expo Router](https://docs.expo.dev/router/introduction/) - File-based routing for React Native
+
+## 👤 Author
+
+**Dotjos**
+
+- GitHub: [@Dotjos](https://github.com/Dotjos)
+
+## 🙏 Acknowledgments
