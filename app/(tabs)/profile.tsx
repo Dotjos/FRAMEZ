@@ -1,5 +1,7 @@
+import PostCard from "@/Components/PostCard";
 import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/store/authStore";
+import { usePostStore } from "@/store/postStore";
 import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
@@ -26,20 +28,23 @@ interface Profile {
   avatar_url: string | null;
 }
 
-interface Post {
-  id: string;
-  image_url: string | null;
-  content: string;
-  created_at: string;
-  user_id: string;
-}
-
 export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
   const router = useRouter();
 
+  // Get everything from the global store
+  const {
+    posts,
+    fetchPosts,
+    fetchUserInteractions,
+    toggleLike,
+    toggleRepost,
+    deletePost: deletePostFromStore,
+    isLiked,
+    isReposted,
+  } = usePostStore();
+
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -49,20 +54,8 @@ export default function ProfileScreen() {
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  };
+  // Filter posts for current user
+  const userPosts = posts.filter((post) => post.user_id === user?.id);
 
   const fetchProfile = async () => {
     if (!user?.id) return;
@@ -80,21 +73,15 @@ export default function ProfileScreen() {
     }
   };
 
-  const fetchUserPosts = async () => {
+  const loadData = async () => {
     if (!user?.id) return;
 
-    const { data, error } = await supabase
-      .from("posts")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (!error) setPosts(data || []);
-  };
-
-  const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchProfile(), fetchUserPosts()]);
+    await Promise.all([
+      fetchProfile(),
+      fetchPosts(user.id), // Fetch only user's posts
+      fetchUserInteractions(user.id),
+    ]);
     setLoading(false);
   };
 
@@ -127,74 +114,16 @@ export default function ProfileScreen() {
     if (error) {
       Alert.alert("Error", error.message);
     } else {
-      Alert.alert("Success", "Profile updated successfully!");
+      Toast.show({
+        type: "success",
+        text2: "Profile updated successfully!",
+      });
       setEditing(false);
       await fetchProfile();
     }
 
     setLoading(false);
   };
-
-  // const handleUploadAvatar = async () => {
-  //   const result = await ImagePicker.launchImageLibraryAsync({
-  //     mediaTypes: ["images"],
-  //     allowsEditing: true,
-  //     aspect: [1, 1],
-  //     quality: 0.8,
-  //   });
-
-  //   if (result.canceled) return;
-
-  //   setUploadingAvatar(true);
-
-  //   try {
-  //     const uri = result.assets[0].uri;
-
-  //     // Read image as base64
-  //     const base64 = await FileSystem.readAsStringAsync(uri, {
-  //       encoding: FileSystem.EncodingType.Base64,
-  //     });
-
-  //     const fileName = `${user?.id}-${Date.now()}.jpg`;
-
-  //     const { data: profile, error } = await supabase
-  //       .from("profiles")
-  //       .select("avatar_url")
-  //       .eq("user_id", user?.id)
-  //       .single();
-
-  //     if (error) throw error;
-
-  //     // Get the public URL of the uploaded image
-  //     const { data: publicUrlData } = supabase.storage
-  //       .from("profile")
-  //       .getPublicUrl(fileName);
-
-  //     const avatarUrl = publicUrlData.publicUrl;
-
-  //     // Update the user's profile table
-  //     const { error: updateError } = await supabase
-  //       .from("profiles")
-  //       .update({ avatar_url: avatarUrl })
-  //       .eq("user_id", user?.id);
-
-  //     if (updateError) throw updateError;
-
-  //     Toast.show({
-  //       type: "success",
-  //       text2: "Profile picture updated successfully!",
-  //     });
-  //     await fetchProfile();
-  //   } catch (err: any) {
-  //     console.error("Avatar upload error:", err);
-  //     Toast.show({
-  //       type: "error",
-  //       text2: "Failed to upload profile picture, kindly try again",
-  //     });
-  //   } finally {
-  //     setUploadingAvatar(false);
-  //   }
-  // };
 
   const handleUploadAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -212,14 +141,12 @@ export default function ProfileScreen() {
       const uri = result.assets[0].uri;
       const fileName = `${user?.id}/avatar-${Date.now()}.jpg`;
 
-      // Read file as base64
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // Upload image to Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from("profile") //
+        .from("profile")
         .upload(fileName, decode(base64), {
           contentType: "image/jpeg",
           upsert: true,
@@ -227,18 +154,16 @@ export default function ProfileScreen() {
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: publicUrlData } = supabase.storage
         .from("profile")
         .getPublicUrl(fileName);
 
       const avatarUrl = publicUrlData.publicUrl;
 
-      // Update user's profile
       const { error: updateError } = await supabase
         .from("profiles")
         .update({ avatar_url: avatarUrl })
-        .eq("user_id", user?.id);
+        .eq("id", user?.id);
 
       if (updateError) throw updateError;
 
@@ -280,20 +205,28 @@ export default function ProfileScreen() {
         text: "Delete",
         style: "destructive",
         onPress: async () => {
-          const { error } = await supabase
-            .from("posts")
-            .delete()
-            .eq("id", postId);
-
-          if (error) {
-            Alert.alert("Error", "Failed to delete post");
+          const success = await deletePostFromStore(postId);
+          if (success) {
+            Toast.show({
+              type: "success",
+              text2: "Post deleted successfully",
+            });
           } else {
-            Alert.alert("Success", "Post deleted");
-            await fetchUserPosts();
+            Alert.alert("Error", "Failed to delete post");
           }
         },
       },
     ]);
+  };
+
+  const handleLike = async (postId: string) => {
+    if (!user?.id) return;
+    await toggleLike(postId, user.id);
+  };
+
+  const handleRepost = async (postId: string) => {
+    if (!user?.id) return;
+    await toggleRepost(postId, user.id);
   };
 
   if (loading && !profile) {
@@ -347,16 +280,8 @@ export default function ProfileScreen() {
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{posts.length}</Text>
+            <Text style={styles.statNumber}>{userPosts.length}</Text>
             <Text style={styles.statLabel}>Posts</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>0</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>0</Text>
-            <Text style={styles.statLabel}>Following</Text>
           </View>
         </View>
       </View>
@@ -426,7 +351,7 @@ export default function ProfileScreen() {
       {/* Posts Section */}
       <View style={styles.postsSection}>
         <Text style={styles.postsHeader}>My Posts</Text>
-        {posts.length === 0 ? (
+        {userPosts.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No posts yet</Text>
             <TouchableOpacity
@@ -437,54 +362,16 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          posts.map((post) => (
-            <View key={post.id} style={styles.postCard}>
-              {/* User Info */}
-              <View style={styles.postUserInfo}>
-                <View style={styles.postAvatar}>
-                  {profile?.avatar_url ? (
-                    <Image
-                      source={{ uri: profile.avatar_url }}
-                      style={styles.postAvatarImage}
-                    />
-                  ) : (
-                    <View style={styles.postAvatarPlaceholder}>
-                      <Text style={styles.postAvatarText}>
-                        {profile?.username?.[0]?.toUpperCase() || "?"}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.postUserDetails}>
-                  <Text style={styles.postUsername}>
-                    {profile?.username || "Anonymous"}
-                  </Text>
-                  <Text style={styles.postTimestamp}>
-                    {formatDate(post.created_at)}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleDeletePost(post.id)}
-                  style={styles.deleteButton}
-                >
-                  <Text style={styles.deleteButtonText}>🗑️</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Post Image */}
-              {post.image_url && (
-                <Image
-                  source={{ uri: post.image_url }}
-                  style={styles.postImage}
-                  resizeMode="cover"
-                />
-              )}
-
-              {/* Post Caption */}
-              {post.content && (
-                <Text style={styles.postCaption}>{post.content}</Text>
-              )}
-            </View>
+          userPosts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              isLiked={isLiked(post.id)}
+              isReposted={isReposted(post.id)}
+              onLike={handleLike}
+              onRepost={handleRepost}
+              onDelete={handleDeletePost}
+            />
           ))
         )}
       </View>
@@ -600,7 +487,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   username: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "600",
     marginBottom: 8,
   },
@@ -674,7 +561,6 @@ const styles = StyleSheet.create({
   },
   postsSection: {
     paddingTop: 10,
-    // borderTopWidth: 1,
     borderTopColor: "#ebebeb",
   },
   postsHeader: {
@@ -701,67 +587,5 @@ const styles = StyleSheet.create({
   createPostText: {
     color: "#fff",
     fontWeight: "600",
-  },
-  postCard: {
-    backgroundColor: "#fff",
-    marginBottom: 5,
-    borderBottomWidth: 1,
-    borderColor: "#ebebeb",
-  },
-  postUserInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-  },
-  postAvatar: {
-    marginRight: 10,
-  },
-  postAvatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  postAvatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#E1306C",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  postAvatarText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  postUserDetails: {
-    flex: 1,
-  },
-  postUsername: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#000",
-  },
-  postTimestamp: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 2,
-  },
-  deleteButton: {
-    padding: 8,
-  },
-  deleteButtonText: {
-    fontSize: 20,
-  },
-  postImage: {
-    width: "100%",
-    height: 400,
-    backgroundColor: "#f0f0f0",
-  },
-  postCaption: {
-    padding: 12,
-    fontSize: 14,
-    color: "#262626",
-    lineHeight: 18,
   },
 });
